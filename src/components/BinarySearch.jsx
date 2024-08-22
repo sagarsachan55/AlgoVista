@@ -8,15 +8,16 @@ function generateArray(size, max = 100) {
   for (let i = 0; i < size; i++) {
     array.push(Math.ceil(Math.random() * max));
   }
-  return array;
+  return array.sort((a, b) => a - b);  // Ensure the array is sorted for binary search
 }
 
-function MergeSort() {
+function BinarySearch() {
   const [array, setArray] = useState(generateArray(40));
-  const [isSorting, setIsSorting] = useState(false);
-  const [stopSorting, setStopSorting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [stopSearching, setStopSearching] = useState(false);
   const [arraySize, setArraySize] = useState(40);
   const [speed, setSpeed] = useState(50);
+  const [searchValue, setSearchValue] = useState(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [cppCode, setCppCode] = useState('');
   const timeoutRef = useRef(null);
@@ -25,22 +26,22 @@ function MergeSort() {
 
   const barColor = '#579be3';
   const nodeColor = '#558a7b';
-  const sortedColor = 'yellow';
-  const currentColor = '#b0e57c';
+  const foundColor = 'yellow';
+  const searchColor = '#b0e57c';
 
   useEffect(() => {
-    axios.get('/CPP_Code_of_Algo/mergeSort.txt')
+    axios.get('/CPP_Code_of_Algo/binarySearch.txt')
       .then(response => setCppCode(response.data))
       .catch(error => setCppCode(`Error fetching file: ${error.message}`));
 
-    if (stopSorting) {
-      setIsSorting(false);
-      setStopSorting(false);
+    if (stopSearching) {
+      setIsSearching(false);
+      setStopSearching(false);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     }
-  }, [stopSorting]);
+  }, [stopSearching]);
 
   const highlight_index = (ind, color) => {
     const curBar = document.getElementById(`bar${ind}`);
@@ -58,99 +59,58 @@ function MergeSort() {
     if (curNode) curNode.style.scale = 1;
   };
 
-  const sorted_index = (ind) => {
-    const curBar = document.getElementById(`bar${ind}`);
-    const curNode = document.getElementById(`node${ind}`);
-    if (curBar) curBar.style.backgroundColor = sortedColor;
-    if (curNode) curNode.style.backgroundColor = sortedColor;
-  };
-
   const reset = (size) => {
     const newArr = generateArray(size);
     setArray(newArr);
-    setIsSorting(false);
-    setStopSorting(false);
+    setIsSearching(false);
+    setStopSearching(false);
 
     for (let i = 0; i < arraySize; i++) normalise_index(i);
   };
 
-  const stopSort = () => {
-    setStopSorting(true);
+  const stopSearch = () => {
+    setStopSearching(true);
   };
 
-  const sortArray = async () => {
-    setIsSorting(true);
-    setStopSorting(false);
+  const searchArray = async () => {
+    if (searchValue === null) {
+      alert('Please enter a value to search');
+      return;
+    }
 
-    let newArr = [...array];
-    await mergeSort(newArr, 0, arraySize - 1);
-    setIsSorting(false);
+    setIsSearching(true);
+    setStopSearching(false);
+
+    let low = 0;
+    let high = arraySize - 1;
+    await binarySearch(low, high);
+    setIsSearching(false);
   };
 
-  const mergeSort = async (arr, left, right) => {
-    if (left < right ) {
-      const mid = Math.floor((left + right) / 2);
-      await mergeSort(arr, left, mid);
-      await mergeSort(arr, mid + 1, right);
-      await merge(arr, left, mid, right);
-    }
-  };
+  const binarySearch = async (low, high) => {
+    highlight_index(low, 'red');
+    highlight_index(high, 'red');
+    if (low <= high && !stopSearching) {
+      const mid = Math.floor((low + high) / 2);
+      highlight_index(mid, searchColor);
+      await new Promise((resolve) => (timeoutRef.current = setTimeout(resolve, speed)));
 
-  const merge = async (arr, left, mid, right) => {
-    const n1 = mid - left + 1;
-    const n2 = right - mid;
-    const leftArr = new Array(n1);
-    const rightArr = new Array(n2);
-
-    for (let i = 0; i < n1; i++) {
-      leftArr[i] = arr[left + i];
-      highlight_index(left + i, currentColor);
-    }
-    for (let j = 0; j < n2; j++) {
-      rightArr[j] = arr[mid + 1 + j];
-      highlight_index(mid + 1 + j, currentColor);
-    }
-
-    await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-
-    let i = 0, j = 0, k = left;
-    while (i < n1 && j < n2) {
-      if (leftArr[i] <= rightArr[j]) {
-        arr[k] = leftArr[i];
-        i++;
+      if (array[mid] === searchValue) {
+        highlight_index(mid, foundColor);
+        await new Promise((resolve) => (timeoutRef.current = setTimeout(resolve, speed)));
+        if(low !== mid) normalise_index(low);
+        if(high !== mid) normalise_index(high);
+        
       } else {
-        arr[k] = rightArr[j];
-        j++;
+        normalise_index(mid);
+        normalise_index(low);
+        normalise_index(high);
+        if (array[mid] < searchValue) {
+          await binarySearch(mid + 1, high);
+        } else {
+          await binarySearch(low, mid - 1);
+        }
       }
-      highlight_index(k, currentColor);
-      setArray([...arr]);
-      await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-      normalise_index(k);
-      k++;
-    }
-
-    while (i < n1) {
-      arr[k] = leftArr[i];
-      highlight_index(k, currentColor);
-      setArray([...arr]);
-      await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-      normalise_index(k);
-      i++;
-      k++;
-    }
-
-    while (j < n2) {
-      arr[k] = rightArr[j];
-      highlight_index(k, currentColor);
-      setArray([...arr]);
-      await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-      normalise_index(k);
-      j++;
-      k++;
-    }
-
-    for (let i = left; i <= right; i++) {
-      sorted_index(i);
     }
   };
 
@@ -166,6 +126,10 @@ function MergeSort() {
     setSpeed(Number(e.target.value));
   };
 
+  const handleSearchValueChange = (e) => {
+    setSearchValue(Number(e.target.value));
+  };
+
   const resetButton = () => {
     reset(arraySize);
   };
@@ -176,7 +140,7 @@ function MergeSort() {
 
   return (
     <div>
-      <h1 className='head-name'>MERGE SORT</h1>
+      <h1 className='head-name'>BINARY SEARCH</h1>
       <div className='array-nodes'>
         {array.map((value, index) => (
           <div id={`node${index}`} className='node' key={index}>
@@ -203,7 +167,7 @@ function MergeSort() {
             max="100"
             value={arraySize}
             onChange={handleSizeChange}
-            disabled={isSorting}
+            disabled={isSearching}
           />
           {arraySize}
         </label>
@@ -215,24 +179,34 @@ function MergeSort() {
             max="1000"
             value={speed}
             onChange={handleSpeedChange}
-            disabled={isSorting}
+            disabled={isSearching}
           />
           {speed} ms
         </label>
-        <button onClick={resetButton} disabled={isSorting}>Reset Array</button>
-        <button onClick={sortArray} disabled={isSorting}>Start Sorting</button>
-        <button onClick={stopSort} disabled={!isSorting}>Stop Sorting</button>
-        <button onClick={nextStep} disabled={isSorting}>Next</button>
+        <label>
+          Search Value:
+          <input
+            type="integer"
+            value={searchValue === null ? '' : searchValue}
+            onChange={handleSearchValueChange}
+            disabled={isSearching}
+          />
+        </label>
+        <button onClick={resetButton} disabled={isSearching}>Reset Array</button>
+        <button onClick={searchArray} disabled={isSearching}>Start Search</button>
+        <button onClick={stopSearch} disabled={!isSearching}>Stop Search</button>
+        <button onClick={nextStep} disabled={isSearching}>Next</button>
       </div>
       <div className='controls'>
         <button onClick={toggleCodeModal}>Show C++ Code</button>
         <button onClick={()=>navigate('/')}>Home</button>
       </div>
+
       {showCodeModal && (
         <div className="modal">
           <div className="modal-content">
             <span className="close" onClick={toggleCodeModal}> &times;</span>
-            <h2>C++ Code for Merge Sort</h2>
+            <h2>C++ Code for Binary Search</h2>
             <pre>{cppCode}</pre>
             <button onClick={() => navigator.clipboard.writeText(cppCode)}>Copy to Clipboard</button>
           </div>
@@ -242,4 +216,4 @@ function MergeSort() {
   );
 }
 
-export default MergeSort;
+export default BinarySearch;

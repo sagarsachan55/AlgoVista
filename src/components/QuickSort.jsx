@@ -11,12 +11,13 @@ function generateArray(size, max = 100) {
   return array;
 }
 
-function MergeSort() {
+function QuickSort() {
   const [array, setArray] = useState(generateArray(40));
   const [isSorting, setIsSorting] = useState(false);
   const [stopSorting, setStopSorting] = useState(false);
   const [arraySize, setArraySize] = useState(40);
   const [speed, setSpeed] = useState(50);
+  const [currentStep, setCurrentStep] = useState(null);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [cppCode, setCppCode] = useState('');
   const timeoutRef = useRef(null);
@@ -25,11 +26,13 @@ function MergeSort() {
 
   const barColor = '#579be3';
   const nodeColor = '#558a7b';
+  const newNodeColor = '#99f3da';
+  const pivotColor = '#ff3f3f';
   const sortedColor = 'yellow';
   const currentColor = '#b0e57c';
 
   useEffect(() => {
-    axios.get('/CPP_Code_of_Algo/mergeSort.txt')
+    axios.get('/CPP_Code_of_Algo/quickSort.txt')
       .then(response => setCppCode(response.data))
       .catch(error => setCppCode(`Error fetching file: ${error.message}`));
 
@@ -65,11 +68,19 @@ function MergeSort() {
     if (curNode) curNode.style.backgroundColor = sortedColor;
   };
 
+  const green_index = (ind) => {
+    const curBar = document.getElementById(`bar${ind}`);
+    const curNode = document.getElementById(`node${ind}`);
+    if (curBar) curBar.style.backgroundColor = 'green';
+    if (curNode) curNode.style.backgroundColor = 'green';
+  }
+
   const reset = (size) => {
     const newArr = generateArray(size);
     setArray(newArr);
     setIsSorting(false);
     setStopSorting(false);
+    setCurrentStep(null);
 
     for (let i = 0; i < arraySize; i++) normalise_index(i);
   };
@@ -81,77 +92,49 @@ function MergeSort() {
   const sortArray = async () => {
     setIsSorting(true);
     setStopSorting(false);
+    setCurrentStep(null);
 
     let newArr = [...array];
-    await mergeSort(newArr, 0, arraySize - 1);
+    await quickSort(newArr, 0, arraySize - 1);
     setIsSorting(false);
   };
 
-  const mergeSort = async (arr, left, right) => {
-    if (left < right ) {
-      const mid = Math.floor((left + right) / 2);
-      await mergeSort(arr, left, mid);
-      await mergeSort(arr, mid + 1, right);
-      await merge(arr, left, mid, right);
+  const quickSort = async (arr, low, high) => {
+    if (low < high && !stopSorting) {
+      let pi = await partition(arr, low, high);
+      await quickSort(arr, low, pi - 1);
+      await quickSort(arr, pi + 1, high);
+    } else {
+      for (let i = low; i <= high; i++) {
+        sorted_index(i);
+      }
     }
   };
 
-  const merge = async (arr, left, mid, right) => {
-    const n1 = mid - left + 1;
-    const n2 = right - mid;
-    const leftArr = new Array(n1);
-    const rightArr = new Array(n2);
+  const partition = async (arr, low, high) => {
+    let pivot = arr[high];
+    highlight_index(high, pivotColor);
+    let i = low - 1;
 
-    for (let i = 0; i < n1; i++) {
-      leftArr[i] = arr[left + i];
-      highlight_index(left + i, currentColor);
-    }
-    for (let j = 0; j < n2; j++) {
-      rightArr[j] = arr[mid + 1 + j];
-      highlight_index(mid + 1 + j, currentColor);
-    }
+    for (let j = low; j < high; j++) {
+      highlight_index(j, newNodeColor);
+      await new Promise((resolve) => (timeoutRef.current = setTimeout(resolve, speed)));
 
-    await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-
-    let i = 0, j = 0, k = left;
-    while (i < n1 && j < n2) {
-      if (leftArr[i] <= rightArr[j]) {
-        arr[k] = leftArr[i];
+      if (arr[j] < pivot) {
         i++;
-      } else {
-        arr[k] = rightArr[j];
-        j++;
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        setArray([...arr]);
+        green_index(i);
+        if(i !== j) normalise_index(j);
       }
-      highlight_index(k, currentColor);
-      setArray([...arr]);
-      await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-      normalise_index(k);
-      k++;
+      else normalise_index(j);
     }
 
-    while (i < n1) {
-      arr[k] = leftArr[i];
-      highlight_index(k, currentColor);
-      setArray([...arr]);
-      await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-      normalise_index(k);
-      i++;
-      k++;
-    }
-
-    while (j < n2) {
-      arr[k] = rightArr[j];
-      highlight_index(k, currentColor);
-      setArray([...arr]);
-      await new Promise((resolve) => timeoutRef.current = setTimeout(resolve, speed));
-      normalise_index(k);
-      j++;
-      k++;
-    }
-
-    for (let i = left; i <= right; i++) {
-      sorted_index(i);
-    }
+    [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
+    setArray([...arr]);
+    normalise_index(high);
+    sorted_index(i + 1);
+    return i + 1;
   };
 
   const nextStep = () => {
@@ -176,7 +159,7 @@ function MergeSort() {
 
   return (
     <div>
-      <h1 className='head-name'>MERGE SORT</h1>
+      <h1 className='head-name'>QUICK SORT</h1>
       <div className='array-nodes'>
         {array.map((value, index) => (
           <div id={`node${index}`} className='node' key={index}>
@@ -228,11 +211,12 @@ function MergeSort() {
         <button onClick={toggleCodeModal}>Show C++ Code</button>
         <button onClick={()=>navigate('/')}>Home</button>
       </div>
+
       {showCodeModal && (
         <div className="modal">
           <div className="modal-content">
             <span className="close" onClick={toggleCodeModal}> &times;</span>
-            <h2>C++ Code for Merge Sort</h2>
+            <h2>C++ Code for Quick Sort</h2>
             <pre>{cppCode}</pre>
             <button onClick={() => navigator.clipboard.writeText(cppCode)}>Copy to Clipboard</button>
           </div>
@@ -242,4 +226,4 @@ function MergeSort() {
   );
 }
 
-export default MergeSort;
+export default QuickSort;
